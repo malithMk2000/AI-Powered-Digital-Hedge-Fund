@@ -96,7 +96,7 @@ def main():
             Volume=("Volume", "sum")
         ).reset_index()
         
-        save_directory = r"C:\Users\AFISOL\Desktop\cse"
+        save_directory = r"C:\Users\Malith\OneDrive\Desktop\Hedge Fund\AI-Powered-Digital-Hedge-Fund"
         filename = os.path.join(save_directory, "sp20_historical_data.csv")
         os.makedirs(save_directory, exist_ok=True)
         
