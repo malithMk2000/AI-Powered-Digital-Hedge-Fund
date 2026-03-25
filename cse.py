@@ -3,6 +3,8 @@ import pandas as pd
 import time
 from datetime import datetime
 import os
+import warnings
+warnings.filterwarnings('ignore') # Hides annoying Pandas warnings
 
 class CSEDataMiner:
     def __init__(self):
@@ -38,7 +40,6 @@ def main():
     save_dir = r"C:\Users\Malith\OneDrive\Desktop\Hedge Fund\AI-Powered-Digital-Hedge-Fund"
     filename = os.path.join(save_dir, "sp20_historical_data.csv")
 
-    # --- THE UPGRADE: SMART PERIOD SELECTION ---
     if os.path.exists(filename):
         print("📂 Found existing dataset. Fetching only the latest 1-Week data to update...")
         fetch_period = "2"  # Period 2 = 1 Week (~4 days)
@@ -71,7 +72,7 @@ def main():
         time.sleep(1) # Be polite to the server
 
     if all_stock_data:
-        # 1. Process the new data
+        # Process the newly fetched data
         new_df = pd.DataFrame(all_stock_data)
         new_df = new_df.sort_values(by=["Symbol", "Timestamp"])
         
@@ -80,23 +81,30 @@ def main():
             Close=("Close", "last"), Volume=("Volume", "sum")
         ).reset_index()
         
-        # Force Date column to string to ensure perfect merging
-        daily_new['Date'] = daily_new['Date'].astype(str)
-        
-        # 2. Merge with existing data if it exists
+        # Merge with existing data if it exists
         if os.path.exists(filename):
             old_df = pd.read_csv(filename)
-            old_df['Date'] = old_df['Date'].astype(str)
-            
             combined_df = pd.concat([old_df, daily_new])
-            # Keep the newest version of the data for any given day
-            final_df = combined_df.drop_duplicates(subset=["Symbol", "Date"], keep="last")
-            final_df = final_df.sort_values(by=["Symbol", "Date"])
         else:
-            final_df = daily_new
+            combined_df = daily_new
             
+        # --- THE FIX: Smart Sorting ---
+        # 1. Convert ALL dates (both Excel-broken and standard) to math-based Datetime objects
+        # To this (just remove the format parameter!):
+        combined_df['Date'] = pd.to_datetime(combined_df['Date'])
+        
+        # 2. Keep the newest version of the data for any given day
+        final_df = combined_df.drop_duplicates(subset=["Symbol", "Date"], keep="last")
+        
+        # 3. Sort chronologically by Symbol and Date flawlessly
+        final_df = final_df.sort_values(by=["Symbol", "Date"])
+        
+        # 4. Convert back to standard YYYY-MM-DD string format to prevent Excel corruption
+        final_df['Date'] = final_df['Date'].dt.strftime('%Y-%m-%d')
+            
+        # Save the properly ordered CSV
         final_df.to_csv(filename, index=False)
-        print(f"🎉 Success! Dataset seamlessly updated. Total Rows: {len(final_df)}")
+        print(f"🎉 Success! Dataset seamlessly updated and chronologically sorted. Total Rows: {len(final_df)}")
     else:
         print("⚠️ Failed to pull new data. Check your internet connection or CSE API status.")
 

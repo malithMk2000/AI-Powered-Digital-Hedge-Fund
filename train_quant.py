@@ -1,87 +1,88 @@
 import pandas as pd
-import numpy as np
 import xgboost as xgb
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import os
 import warnings
-warnings.filterwarnings('ignore') # Hides annoying Pandas copy warnings
+warnings.filterwarnings('ignore')
 
 def main():
-    file_path = r"C:\Users\Malith\OneDrive\Desktop\Hedge Fund\AI-Powered-Digital-Hedge-Fund\sp20_ml_ready.csv"
-    print(f"📂 Loading ML dataset from {file_path}...")
+    base_dir = r"C:\Users\Malith\OneDrive\Desktop\Hedge Fund\AI-Powered-Digital-Hedge-Fund"
+    input_file = os.path.join(base_dir, "sp20_ml_ready.csv")
+
+    print(f"📂 Loading ML dataset from {input_file}...")
     try:
-        df = pd.read_csv(file_path)
+        df = pd.read_csv(input_file)
     except FileNotFoundError:
-        print("❌ Could not find the dataset. Check the path.")
+        print("❌ File not found.")
         return
 
-    # Ensure chronological order
+    # 🚀 THE OMNISCIENT AI UPGRADE
+    features = [
+        'Close', 'SMA_10', 'SMA_50', 'RSI_14', 'MACD', 'MACD_Signal', 'Volume', # Technicals
+        'LLM_Sentiment',                                                        # Micro News
+        'ASPI_Trend_%', 'Global_Market_Trend_%', 'Oil_Trend_%',                 # Macro Trends
+        'Rate_Trend_%', 'USD_LKR'                                               # Macro Currency/Rates
+    ]
+
+    target = 'Target_Up'
+
+    # Clean the dates and sort chronologically
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.sort_values(by=['Symbol', 'Date'])
-
-    features = ['Close', 'SMA_10', 'SMA_50', 'RSI_14', 'MACD', 'MACD_Signal', 'Volume']
     
-    # 🚀 THE UPGRADE: SMART SEPARATION
-    # We find the rows where 'Target_Up' is blank (NaN). These are our Live Data rows for tomorrow!
-    live_data = df[df['Target_Up'].isna()].copy()
+    # --- THE BULLETPROOF SPLIT ---
+    # Find the absolute latest date in the dataset (Today)
+    latest_date = df['Date'].max()
     
-    # Everything else (where Target_Up has a 0.0 or 1.0) is historical data for training
-    historical_data = df[df['Target_Up'].notna()].copy()
-
-    if len(historical_data) == 0:
-        print("⚠️ Not enough historical data to train the model.")
-        return
-
-    X_hist = historical_data[features]
-    y_hist = historical_data['Target_Up']
-
-    # 80/20 Time-Series Split for evaluation
-    split_index = int(len(historical_data) * 0.80)
+    # Everything BEFORE today is used to Train the AI
+    train_df = df[df['Date'] < latest_date].copy()
     
-    X_train, X_test = X_hist.iloc[:split_index], X_hist.iloc[split_index:]
-    y_train, y_test = y_hist.iloc[:split_index], y_hist.iloc[split_index:]
-    
-    count_class_0 = len(y_train[y_train == 0])
-    count_class_1 = len(y_train[y_train == 1])
-    bravery_weight = count_class_0 / count_class_1 if count_class_1 > 0 else 1.0
+    # TODAY's data is strictly used to predict Tomorrow's price action
+    live_df = df[df['Date'] == latest_date].copy()
 
-    model = xgb.XGBClassifier(
-        n_estimators=150, 
-        learning_rate=0.05, 
-        max_depth=5, 
-        random_state=42,
-        scale_pos_weight=bravery_weight, 
-        eval_metric='logloss'
-    )
-    
-    print(f"🧠 Training the Quant Agent on {len(X_train)} historical days...")
+    print(f"🧠 Training the Omniscient Quant Agent on {len(train_df)} historical days...")
+
+    X = train_df[features]
+    y = train_df[target]
+
+    # Standard train/test split to test the AI's accuracy on the past
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=False)
+
+    model = xgb.XGBClassifier(n_estimators=100, learning_rate=0.1, random_state=42, eval_metric='logloss')
     model.fit(X_train, y_train)
 
-    predictions = model.predict(X_test)
-    accuracy = accuracy_score(y_test, predictions)
-    print(f"🎯 BACKTEST ACCURACY: {accuracy * 100:.2f}%")
+    preds = model.predict(X_test)
+    acc = accuracy_score(y_test, preds)
+    print(f"🎯 BACKTEST ACCURACY: {acc * 100:.2f}%")
 
-    # --- LIVE TRADING SIGNALS ---
     print("\n=======================================================")
     print("🚀 LIVE TRADING SIGNALS FOR NEXT TRADING DAY 🚀")
-    print("=======================================================\n")
-    
-    if len(live_data) > 0:
-        # We feed the features from the live data (the blank target days) into the trained AI
-        X_live = live_data[features]
-        live_predictions = model.predict(X_live)
-        
-        # Attach predictions to our live data dataframe
-        live_data['Signal'] = live_predictions
-        live_data['Prediction'] = live_data['Signal'].map({1: "🟢 BUY / UP", 0: "🔴 HOLD / DOWN"})
-        
-        # Clean up the output table for the Hedge Fund manager (You!)
-        trade_desk = live_data[['Symbol', 'Date', 'Close', 'RSI_14', 'Prediction']].copy()
-        trade_desk['Date'] = trade_desk['Date'].dt.strftime('%Y-%m-%d')
-        trade_desk.rename(columns={'Date': 'Data Date (Last Close)'}, inplace=True)
-        
-        print(trade_desk.to_string(index=False))
-    else:
-        print("⚠️ No live data found. Ensure add_indicators.py leaves the last day's Target_Up blank.")
+    print("=======================================================")
+
+    if len(live_df) == 0:
+        print("⚠️ No live data available.")
+        return
+
+    # Make predictions for Tomorrow using Today's data
+    X_live = live_df[features]
+    live_preds = model.predict(X_live)
+    live_probs = model.predict_proba(X_live)[:, 1] # Probability of going UP
+
+    live_df['Prediction'] = live_preds
+    live_df['Confidence_%'] = (live_probs * 100).round(2)
+
+    def format_signal(pred):
+        return "🟢 BUY / UP" if pred == 1 else "🔴 HOLD / DOWN"
+
+    live_df['Signal'] = live_df['Prediction'].apply(format_signal)
+
+    # Convert date back to string for clean printing
+    live_df['Date'] = live_df['Date'].dt.strftime('%Y-%m-%d')
+
+    # Print out the final Master Table
+    columns_to_show = ['Symbol', 'Date', 'Close', 'RSI_14', 'LLM_Sentiment', 'Confidence_%', 'Signal']
+    print(live_df[columns_to_show].to_string(index=False))
 
 if __name__ == "__main__":
     main()
