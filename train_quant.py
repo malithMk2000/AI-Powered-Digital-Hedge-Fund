@@ -17,15 +17,22 @@ def main():
         print("❌ File not found.")
         return
 
-    # 🚀 THE OMNISCIENT AI UPGRADE
+    # 🚀 THE OMNISCIENT AI UPGRADE (FINAL VERSION)
     features = [
         'Close', 'SMA_10', 'SMA_50', 'RSI_14', 'MACD', 'MACD_Signal', 'Volume', # Technicals
-        'LLM_Sentiment',                                                        # Micro News
+        'LLM_Sentiment', 'Alt_News_Sentiment',                                  # Micro & Alt News
         'ASPI_Trend_%', 'Global_Market_Trend_%', 'Oil_Trend_%',                 # Macro Trends
-        'Rate_Trend_%', 'USD_LKR'                                               # Macro Currency/Rates
+        'Rate_Trend_%', 'USD_LKR', 'Global_Fear_Index'                          # Macro Currency/Rates & VIX
     ]
 
     target = 'Target_Up'
+
+    # Check if all features exist (graceful fallback if macro miner hasn't updated VIX yet)
+    missing_features = [f for f in features if f not in df.columns]
+    if missing_features:
+        print(f"⚠️ Warning: Missing columns {missing_features}. Filling with 0.0 for now.")
+        for col in missing_features:
+            df[col] = 0.0
 
     # Clean the dates and sort chronologically
     df['Date'] = pd.to_datetime(df['Date'])
@@ -72,17 +79,25 @@ def main():
     live_df['Prediction'] = live_preds
     live_df['Confidence_%'] = (live_probs * 100).round(2)
 
-    def format_signal(pred):
-        return "🟢 BUY / UP" if pred == 1 else "🔴 HOLD / DOWN"
+    # --- THE REGIME FILTER (CRISIS MANAGEMENT) ---
+    def apply_crisis_filter(row):
+        # If the AI says BUY, but confidence is weak, AND the Global Fear Index is high (> 25)
+        if row['Prediction'] == 1 and row['Confidence_%'] < 75.0 and row['Global_Fear_Index'] > 25.0:
+            return "🔴 HOLD (OVERRIDDEN DUE TO GLOBAL CRISIS)"
+        elif row['Prediction'] == 1:
+            return "🟢 BUY / UP"
+        else:
+            return "🔴 HOLD / DOWN"
 
-    live_df['Signal'] = live_df['Prediction'].apply(format_signal)
+    live_df['Signal'] = live_df.apply(apply_crisis_filter, axis=1)
 
     # Convert date back to string for clean printing
     live_df['Date'] = live_df['Date'].dt.strftime('%Y-%m-%d')
 
     # Print out the final Master Table
-    columns_to_show = ['Symbol', 'Date', 'Close', 'RSI_14', 'LLM_Sentiment', 'Confidence_%', 'Signal']
+    columns_to_show = ['Symbol', 'Date', 'Close', 'LLM_Sentiment', 'Alt_News_Sentiment', 'Confidence_%', 'Signal']
     print(live_df[columns_to_show].to_string(index=False))
+    return live_df[columns_to_show].to_dict(orient='records')
 
 if __name__ == "__main__":
     main()

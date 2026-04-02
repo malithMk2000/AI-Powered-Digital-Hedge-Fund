@@ -125,15 +125,10 @@ def main():
         if os.path.exists(filename):
             old_df = pd.read_csv(filename)
             df = pd.concat([old_df, new_df])
-            df = df.drop_duplicates(subset=["Date", "Symbol", "Headline"], keep="last")
+            df = df.drop_duplicates(subset=["Date", "Symbol", "Headline"], keep="first")
         else:
             df = new_df
             
-        df['Date_Obj'] = pd.to_datetime(df['Date'])
-        thirty_days_ago = pd.Timestamp.now() - pd.Timedelta(days=30)
-        
-        df = df[df['Date_Obj'] >= thirty_days_ago]
-        df = df.drop(columns=['Date_Obj'])
         df = df.sort_values(by=["Date", "Symbol"], ascending=[False, True])
         
         df.to_csv(filename, index=False)

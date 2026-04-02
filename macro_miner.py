@@ -44,8 +44,8 @@ def fetch_macro_data():
     print("🌍 Awakening the Global Macro-Econ Agent...")
     
     # --- ENGINE 1: GLOBAL DATA (Yahoo Finance) ---
-    tickers = ["^GSPC", "LKR=X", "BZ=F", "^TNX"]
-    print("📡 Downloading global economic data (S&P 500, Oil, USD/LKR, Yields)...")
+    tickers = ["^GSPC", "LKR=X", "BZ=F", "^TNX", "^VIX"]
+    print("📡 Downloading global economic data (S&P 500, Oil, USD/LKR, Yields, VIX)...")
     
     # Downloading 1 year to match the CSE data length
     data = yf.download(tickers, period="1y", interval="1d", progress=False)
@@ -60,7 +60,8 @@ def fetch_macro_data():
         '^GSPC': 'Global_Market_Index',
         'LKR=X': 'USD_LKR',
         'BZ=F': 'Brent_Oil',
-        '^TNX': 'Global_Interest_Rate'
+        '^TNX': 'Global_Interest_Rate',
+        '^VIX': 'Global_Fear_Index'
     }, inplace=True)
     
     macro_df['Date'] = pd.to_datetime(macro_df['Date']).dt.strftime('%Y-%m-%d')

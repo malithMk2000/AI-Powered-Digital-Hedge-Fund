@@ -29,8 +29,8 @@ def extract_text_from_pdf(url):
     except Exception:
         return ""
 
-def ask_llm_for_score(headline, pdf_text):
-    """Feeds the text DIRECTLY to Google's Raw API via HTTP Request."""
+def ask_llm_for_score(headline, pdf_text, max_retries=5):
+    """Feeds the text DIRECTLY to Google's Raw API with Smart Retries."""
     if not pdf_text:
         content_to_analyze = f"Headline: {headline}"
     else:
@@ -53,27 +53,38 @@ def ask_llm_for_score(headline, pdf_text):
     You must output ONLY a single float number between -1.0 and 1.0. Do not write any words, explanations, or formatting. Just the number.
     """
     
-    # 🚀 Direct connection to Google's Brain
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
     headers = {'Content-Type': 'application/json'}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}]
     }
     
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        data = response.json()
-        
-        # Extract the exact text the AI replied with
-        score_str = data['candidates'][0]['content']['parts'][0]['text'].strip()
-        score = float(score_str)
-        
-        return max(-1.0, min(1.0, score))
-    except Exception as e:
-        # If it fails, print the error but keep the pipeline running with a 0.0
-        print(f"      ⚠️ API Error (Defaulting to 0.0): {e}")
-        return 0.0
+    base_wait_time = 5 
+    
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            
+            if response.status_code == 429:
+                wait = base_wait_time * (2 ** attempt)
+                print(f"      ⏳ Rate Limit Hit (429). Pausing for {wait} seconds...")
+                time.sleep(wait)
+                continue 
+                
+            response.raise_for_status() 
+            data = response.json()
+            
+            score_str = data['candidates'][0]['content']['parts'][0]['text'].strip()
+            score = float(score_str)
+            
+            return max(-1.0, min(1.0, score))
+            
+        except Exception as e:
+            if attempt == max_retries - 1:
+                print(f"      ⚠️ API Error (Failed after {max_retries} retries): {e}")
+                return 0.0
+            else:
+                time.sleep(3)
 
 def main():
     base_dir = r"C:\Users\Malith\OneDrive\Desktop\Hedge Fund\AI-Powered-Digital-Hedge-Fund"
@@ -87,30 +98,39 @@ def main():
         return
 
     print("🧠 Awakening the LLM Quant Agent (Direct API Mode)...")
-    df['LLM_Sentiment'] = 0.0
+    
+    # 🚀 THE FIX: Only initialize the column with NA if it doesn't exist yet
+    if 'LLM_Sentiment' not in df.columns:
+        df['LLM_Sentiment'] = pd.NA
     
     for index, row in df.iterrows():
-        headline = row['Headline']
-        symbol = row['Symbol']
-        url = row.get('PDF_Link', "")
-        
-        print(f"   📖 LLM is reading {symbol} -> {headline[:30]}...")
-        
-        pdf_text = extract_text_from_pdf(url) if str(url).startswith("http") else ""
-        
-        score = ask_llm_for_score(headline, pdf_text)
-        df.at[index, 'LLM_Sentiment'] = score
-        
-        print(f"      🎯 LLM Score: {score}")
-        
-        # 2-second pause to respect API limits
-        time.sleep(2)
+        # 🚀 THE SHIELD: Check if the score is blank (NaN) before doing ANY work
+        if pd.isna(row['LLM_Sentiment']) or row['LLM_Sentiment'] == "":
+            headline = row['Headline']
+            symbol = row['Symbol']
+            url = row.get('PDF_Link', "")
+            
+            print(f"  📖 LLM is reading {symbol} -> {headline[:30]}...")
+            
+            pdf_text = extract_text_from_pdf(url) if str(url).startswith("http") else ""
+            
+            score = ask_llm_for_score(headline, pdf_text)
+            df.at[index, 'LLM_Sentiment'] = score
+            
+            print(f"      🎯 LLM Score: {score}")
+            
+            # 5-second pause to respect API limits
+            time.sleep(5)
 
+    # Save the updated scores
     df.to_csv(input_file, index=False)
     
-    print("\n🎉 Success! The LLM has finished reading and scoring the news.")
+    print("\n🎉 Success! The LLM has finished reading and scoring the new disclosures.")
     
-    movers = df[df['LLM_Sentiment'] != 0.0]
+    # Safely display movers by making sure we don't trip over NaNs
+    movers = df[pd.notna(df['LLM_Sentiment'])]
+    movers = movers[movers['LLM_Sentiment'] != 0.0]
+    
     print("\n🔥 LLM IDENTIFIED MARKET CATALYSTS:")
     print(movers[['Date', 'Symbol', 'Headline', 'LLM_Sentiment']].head(10).to_string(index=False))
 

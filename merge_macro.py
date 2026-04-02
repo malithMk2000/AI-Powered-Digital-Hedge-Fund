@@ -26,6 +26,26 @@ def main():
     df_ml['Date'] = pd.to_datetime(df_ml['Date']).dt.strftime('%Y-%m-%d')
     df_macro['Date'] = pd.to_datetime(df_macro['Date']).dt.strftime('%Y-%m-%d')
 
+
+    # =========================================================================
+    # 🚀 NEW: Load the Pre-Scored Alternative News Data (INSERTED HERE)
+    # =========================================================================
+    print("📰 Loading Alternative News Data...")
+    alt_news_file = os.path.join(base_dir, "sp20_alt_news_scored.csv") 
+    
+    # Drop Alt_News_Sentiment if it already exists so we can update it cleanly
+    if 'Alt_News_Sentiment' in df_ml.columns:
+        df_ml = df_ml.drop(columns=['Alt_News_Sentiment'])
+    
+    if os.path.exists(alt_news_file):
+        df_alt = pd.read_csv(alt_news_file)
+        # Because alt_news_scorer.py already grouped them by day, we just do a direct merge!
+        df_ml = pd.merge(df_ml, df_alt[['Date', 'Symbol', 'Alt_News_Sentiment']], on=['Date', 'Symbol'], how='left')
+        df_ml['Alt_News_Sentiment'] = df_ml['Alt_News_Sentiment'].fillna(0.0)
+    else:
+        df_ml['Alt_News_Sentiment'] = 0.0
+    # =========================================================================
+
     print("🔗 Fusing Macro Environment with Micro Stock Data...")
     
     # Drop macro columns if they already exist so we don't get duplicates if you run it twice
