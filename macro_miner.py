@@ -94,14 +94,33 @@ def fetch_macro_data():
     # Save to the final CSV
     base_dir = r"C:\Users\Malith\OneDrive\Desktop\Hedge Fund\AI-Powered-Digital-Hedge-Fund"
     output_file = os.path.join(base_dir, "global_macro_data.csv")
-    combined_df.to_csv(output_file, index=False)
     
-    print(f"\n🎉 Success! Global & Local Macro data fused and saved to: {output_file}")
+    # 🚀 THE INFINITE MEMORY UPGRADE
+    if os.path.exists(output_file):
+        old_df = pd.read_csv(output_file)
+        # Combine the historical data with the newly downloaded 1-year window
+        final_df = pd.concat([old_df, combined_df])
+        
+        # Drop duplicates based on the Date. 
+        # keep="last" ensures if Yahoo updated a close price for yesterday, we keep the newest accurate number.
+        final_df = final_df.drop_duplicates(subset=['Date'], keep='last')
+    else:
+        final_df = combined_df
+
+    # Sort chronologically to maintain perfect order
+    final_df['Date'] = pd.to_datetime(final_df['Date'])
+    final_df = final_df.sort_values(by='Date')
+    final_df['Date'] = final_df['Date'].dt.strftime('%Y-%m-%d')
+
+    final_df.to_csv(output_file, index=False)
+    
+    print(f"\n🎉 Success! Global & Local Macro data fused and safely appended. Total History: {len(final_df)} days.")
+    print(f"Dataset saved to: {output_file}")
     print("\nPreview of the Macro Environment:")
     
     cols_to_show = ['Date', 'ASPI_Index', 'Global_Market_Index', 'USD_LKR', 'Brent_Oil']
-    available_cols = [c for c in cols_to_show if c in combined_df.columns]
-    print(combined_df[available_cols].tail(10).to_string(index=False))
+    available_cols = [c for c in cols_to_show if c in final_df.columns]
+    print(final_df[available_cols].tail(10).to_string(index=False))
 
 if __name__ == "__main__":
     fetch_macro_data()

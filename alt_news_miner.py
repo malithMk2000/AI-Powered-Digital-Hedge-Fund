@@ -121,7 +121,7 @@ def scrape_external_news():
             old_df = pd.read_csv(filename)
             df = pd.concat([old_df, new_df])
             # Drop exact duplicates so we don't save the same article twice
-            df = df.drop_duplicates(subset=["Link", "Symbol"], keep="last")
+            df = df.drop_duplicates(subset=["Link", "Symbol"], keep="first")
         else:
             df = new_df
 

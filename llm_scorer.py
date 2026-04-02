@@ -6,7 +6,7 @@ import os
 import time
 
 # 🛑 PUT YOUR GEMINI API KEY HERE 🛑
-API_KEY = ""
+API_KEY = "AIzaSyDrXnmys68OcbVMm3L3MXDILttbfE53AEY"
 
 def extract_text_from_pdf(url):
     """Downloads the PDF and extracts the first 5 pages of text for the LLM."""

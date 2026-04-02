@@ -132,7 +132,7 @@ def main():
         df = df.sort_values(by=["Date", "Symbol"], ascending=[False, True])
         
         df.to_csv(filename, index=False)
-        print(f"\n🎉 Success! Your database now securely holds {len(df)} news items from the last 30 days.")
+        print(f"\n🎉 Success! Your database now securely holds {len(df)} historical news items")
         print(f"Dataset saved to: {filename}")
         print("\nPreview of the latest news:")
         print(df[['Date', 'Symbol', 'Headline', 'PDF_Link']].head().to_string(index=False))

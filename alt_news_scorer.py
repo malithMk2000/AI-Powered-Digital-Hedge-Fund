@@ -4,7 +4,7 @@ import os
 import time
 
 # 🛑 PUT YOUR ACTUAL GEMINI API KEY HERE 🛑
-API_KEY = ""
+API_KEY = "AIzaSyDrXnmys68OcbVMm3L3MXDILttbfE53AEY"
 
 def ask_llm_for_net_score(symbol, combined_text, max_retries=5):
     """Scores a bundle of daily news for a single company with Exponential Backoff."""
