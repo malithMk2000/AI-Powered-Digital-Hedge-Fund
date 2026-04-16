@@ -53,7 +53,7 @@ def ask_llm_for_score(headline, pdf_text, max_retries=5):
     You must output ONLY a single float number between -1.0 and 1.0. Do not write any words, explanations, or formatting. Just the number.
     """
     
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={API_KEY}"
     headers = {'Content-Type': 'application/json'}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}]
